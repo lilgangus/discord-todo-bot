@@ -19,7 +19,6 @@ TODO_DIR="$(dirname "$TODO_FILE")"
 TODO_NAME="$(basename "$TODO_FILE" .json)"
 
 echo "Starting bot with todo file: $TODO_FILE"
-
 # Build the image from project root
 docker build -t discord-todo-bot -f "$PROJECT_DIR/docker/Dockerfile" "$PROJECT_DIR"
 

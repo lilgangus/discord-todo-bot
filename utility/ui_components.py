@@ -187,5 +187,10 @@ class RemoveTaskView(ui.View):
         super().__init__(timeout=60)
         self.add_item(RemoveTaskSelect(guild_id, channel_id))
 
+    @ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel_button(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.defer()
+        await interaction.message.delete()
+
     async def on_timeout(self):
         pass

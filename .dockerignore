@@ -3,7 +3,8 @@
 .env
 *.json
 data/
-docker/
+docker/Dockerfile
+docker/*.sh
 __pycache__/
 *.pyc
 *.pyo

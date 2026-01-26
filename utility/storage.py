@@ -26,16 +26,26 @@ def load_todos():
     """Load todos from file."""
     global todos
     if os.path.exists(TODO_FILE):
-        with open(TODO_FILE, "r") as f:
-            data = json.load(f)
-            # Convert string keys back to integers (JSON stores keys as strings)
-            todos = {
-                int(guild_id): {
-                    int(channel_id): tasks
-                    for channel_id, tasks in channels.items()
+        try:
+            with open(TODO_FILE, "r") as f:
+                content = f.read().strip()
+                if not content:
+                    # File is empty, use empty dict
+                    todos = {}
+                    return
+                data = json.loads(content)
+                # Convert string keys back to integers (JSON stores keys as strings)
+                todos = {
+                    int(guild_id): {
+                        int(channel_id): tasks
+                        for channel_id, tasks in channels.items()
+                    }
+                    for guild_id, channels in data.items()
                 }
-                for guild_id, channels in data.items()
-            }
+        except json.JSONDecodeError:
+            # Invalid JSON, start with empty todos
+            print(f"Warning: Could not parse {TODO_FILE}, starting with empty todos")
+            todos = {}
 
 
 def save_todos():
