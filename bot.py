@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from storage import (
+from utility.storage import (
     TOKEN,
     REMINDER_HOUR,
     REMINDER_MINUTE,
@@ -15,7 +15,7 @@ from storage import (
     todos,
     save_todos,
 )
-from ui_components import (
+from utility.ui_components import (
     DoneTaskView,
     EditTaskView,
     RemoveTaskView,

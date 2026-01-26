@@ -1,7 +1,7 @@
 import discord
 from discord import ui
 
-from storage import todos, save_todos, DONE_CHANNEL
+from utility.storage import todos, save_todos, DONE_CHANNEL
 
 
 class DoneTaskSelect(ui.Select):

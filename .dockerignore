@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+*.json
+data/
+docker/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+README.md
+*.md

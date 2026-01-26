@@ -9,7 +9,8 @@ load_dotenv()
 
 # Bot configuration
 TOKEN = os.getenv("DISCORD_TOKEN")
-TODO_FILE = (sys.argv[1] if len(sys.argv) > 1 else "discord_bot_list") + ".json"
+DATA_DIR = os.getenv("DATA_DIR", ".")
+TODO_FILE = os.path.join(DATA_DIR, (sys.argv[1] if len(sys.argv) > 1 else "discord_bot_list") + ".json")
 REMINDER_HOUR = 9
 REMINDER_MINUTE = 0
 REMINDER_MENTION = os.getenv("DISCORD_USERNAME_ID", "@everyone")
