@@ -123,7 +123,7 @@ async def add(interaction: discord.Interaction, task: str):
         taskname = task.strip()
         details = ""
 
-    task_id = len(todos[guild_id][channel_id]) + 1
+    task_id = max((t["id"] for t in todos[guild_id][channel_id]), default=0) + 1
     todos[guild_id][channel_id].append({
         "id": task_id,
         "name": taskname,

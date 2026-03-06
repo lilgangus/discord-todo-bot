@@ -14,26 +14,26 @@ class DoneTaskSelect(ui.Select):
         options = [
             discord.SelectOption(
                 label=f"#{task['id']} {task['name'][:50]}",
-                value=str(task["id"]),
+                value=str(i),
                 description=task["details"][:100] if task["details"] else None
             )
-            for task in incomplete_tasks
+            for i, task in enumerate(incomplete_tasks)
         ]
         super().__init__(placeholder="Select a task to mark as done...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        task_id = int(self.values[0])
+        idx = int(self.values[0])
         guild_id = self.guild_id
         channel_id = self.channel_id
 
         channel_tasks = todos.get(guild_id, {}).get(channel_id, [])
-        for task in channel_tasks:
-            if task["id"] == task_id:
-                task["done"] = True
-                save_todos()
-                await interaction.response.send_message(f"Task #{task_id} marked as done: **{task['name']}**")
-                await interaction.message.delete()
-                return
+        incomplete_tasks = [task for task in channel_tasks if not task["done"]]
+        task = incomplete_tasks[idx]
+        task_id = task["id"]
+        task["done"] = True
+        save_todos()
+        await interaction.response.send_message(f"Task #{task_id} marked as done: **{task['name']}**")
+        await interaction.message.delete()
 
 
 class DoneTaskView(ui.View):
@@ -88,28 +88,26 @@ class EditTaskSelect(ui.Select):
         options = [
             discord.SelectOption(
                 label=f"#{task['id']} {task['name'][:50]}",
-                value=str(task["id"]),
+                value=str(i),
                 description=task["details"][:100] if task["details"] else None
             )
-            for task in channel_tasks
+            for i, task in enumerate(channel_tasks)
         ]
         super().__init__(placeholder="Select a task to edit...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        task_id = int(self.values[0])
+        idx = int(self.values[0])
         guild_id = self.guild_id
         channel_id = self.channel_id
 
         channel_tasks = todos.get(guild_id, {}).get(channel_id, [])
-        for task in channel_tasks:
-            if task["id"] == task_id:
-                modal = EditTaskModal(
-                    guild_id, channel_id, task_id,
-                    task["name"], task["details"]
-                )
-                await interaction.response.send_modal(modal)
-                await interaction.message.delete()
-                return
+        task = channel_tasks[idx]
+        modal = EditTaskModal(
+            guild_id, channel_id, task["id"],
+            task["name"], task["details"]
+        )
+        await interaction.response.send_modal(modal)
+        await interaction.message.delete()
 
 
 class EditTaskView(ui.View):
@@ -129,10 +127,10 @@ class RemoveTaskSelect(ui.Select):
         options = [
             discord.SelectOption(
                 label=f"#{task['id']} {task['name'][:50]}",
-                value=str(task["id"]),
+                value=str(i),
                 description=task["details"][:100] if task["details"] else None
             )
-            for task in channel_tasks
+            for i, task in enumerate(channel_tasks)
         ]
         # Allow selecting multiple tasks (up to 25, Discord's limit)
         max_selections = min(len(options), 25)
@@ -144,7 +142,7 @@ class RemoveTaskSelect(ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        task_ids = [int(v) for v in self.values]
+        indices = sorted([int(v) for v in self.values], reverse=True)
         guild_id = self.guild_id
         channel_id = self.channel_id
 
@@ -155,13 +153,10 @@ class RemoveTaskSelect(ui.Select):
         channel_tasks = todos.get(guild_id, {}).get(channel_id, [])
         removed_tasks = []
 
-        # Remove tasks (iterate in reverse to avoid index issues)
-        for task_id in task_ids:
-            for i, task in enumerate(channel_tasks):
-                if task["id"] == task_id:
-                    removed = channel_tasks.pop(i)
-                    removed_tasks.append(removed)
-                    break
+        # Remove by index in reverse order to avoid shifting issues
+        for i in indices:
+            removed_tasks.append(channel_tasks.pop(i))
+        removed_tasks.reverse()
 
         if removed_tasks:
             save_todos()
