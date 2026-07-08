@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
 import discord
@@ -11,9 +11,12 @@ from utility.storage import (
     REMINDER_MINUTE,
     REMINDER_MENTION,
     REMINDER_CHANNELS,
+    REMINDERS_CHANNEL,
     DONE_CHANNEL,
     todos,
     save_todos,
+    is_reminders_channel,
+    format_notify_date,
 )
 from utility.ui_components import (
     DoneTaskView,
@@ -36,6 +39,7 @@ async def help_command(interaction: discord.Interaction):
     help_text = """**Todo Bot Commands**
 
 - **/add task** - Add a new task (use `|` for details, e.g. `Buy milk | 2% gallon`)
+- **/add task notify_date** - In **#reminders**, also set a due date (notified at midnight that day)
 - **/list** - Show all tasks in this channel
 - **/listall** - Show all tasks from all channels
 - **/done** - Mark a task as completed (dropdown selector)
@@ -93,9 +97,36 @@ async def daily_reminder():
                 await channel.send(message)
 
 
+@tasks.loop(time=time(hour=0, minute=0, tzinfo=ZoneInfo("America/Los_Angeles")))
+async def date_reminder():
+    """Notify about reminder tasks whose due date is today (at midnight)."""
+    mention = f"<@{REMINDER_MENTION}>" if REMINDER_MENTION.isdigit() else REMINDER_MENTION
+    today = datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
+
+    for guild in bot.guilds:
+        channel = discord.utils.get(guild.text_channels, name=REMINDERS_CHANNEL)
+        if not channel:
+            continue
+
+        channel_tasks = todos.get(guild.id, {}).get(channel.id, [])
+        due_today = [
+            task for task in channel_tasks
+            if not task["done"] and task.get("notify_date") == today
+        ]
+        if not due_today:
+            continue
+
+        message = f"{mention} **Reminders for today:**\n"
+        for task in due_today:
+            details_text = f" - {task['details']}" if task["details"] else ""
+            message += f"[ ] #{task['id']} **{task['name']}**{details_text}\n"
+        await channel.send(message)
+
+
 @bot.event
 async def on_ready():
     daily_reminder.start()
+    date_reminder.start()
     # Sync slash commands with Discord
     await bot.tree.sync()
     print(f"{bot.user} is now online!")
@@ -103,11 +134,25 @@ async def on_ready():
 
 
 @bot.tree.command(name="add", description="Add a new task to this channel")
-@app_commands.describe(task="Task name, optionally followed by | and details")
-async def add(interaction: discord.Interaction, task: str):
+@app_commands.describe(
+    task="Task name, optionally followed by | and details",
+    notify_date="Due date for reminders (required in #reminders; notified at midnight)",
+)
+async def add(
+    interaction: discord.Interaction,
+    task: str,
+    notify_date: date | None = None,
+):
     """Add a new task."""
     guild_id = interaction.guild_id
     channel_id = interaction.channel_id
+    in_reminders = is_reminders_channel(interaction.channel)
+
+    if in_reminders and notify_date is None:
+        await interaction.response.send_message(
+            f"In **#{REMINDERS_CHANNEL}**, you must set a `notify_date` when adding a task."
+        )
+        return
 
     if guild_id not in todos:
         todos[guild_id] = {}
@@ -124,15 +169,20 @@ async def add(interaction: discord.Interaction, task: str):
         details = ""
 
     task_id = max((t["id"] for t in todos[guild_id][channel_id]), default=0) + 1
-    todos[guild_id][channel_id].append({
+    new_task = {
         "id": task_id,
         "name": taskname,
         "details": details,
-        "done": False
-    })
+        "done": False,
+    }
+    if notify_date is not None:
+        new_task["notify_date"] = notify_date.isoformat()
+
+    todos[guild_id][channel_id].append(new_task)
 
     save_todos()
-    await interaction.response.send_message(f"Task #{task_id} added: **{taskname}**")
+    date_text = format_notify_date(new_task.get("notify_date"))
+    await interaction.response.send_message(f"Task #{task_id} added: **{taskname}**{date_text}")
 
 
 @bot.tree.command(name="list", description="Show all tasks in this channel")
@@ -151,7 +201,8 @@ async def list_tasks(interaction: discord.Interaction):
     for task in channel_tasks:
         status = "[x]" if task["done"] else "[ ]"
         details_text = f" - {task['details']}" if task["details"] else ""
-        message += f"{status} #{task['id']} **{task['name']}**{details_text}\n"
+        date_text = format_notify_date(task.get("notify_date"))
+        message += f"{status} #{task['id']} **{task['name']}**{details_text}{date_text}\n"
 
     await interaction.response.send_message(message)
 
@@ -180,7 +231,8 @@ async def list_all_tasks(interaction: discord.Interaction):
         for task in channel_tasks:
             status = "[x]" if task["done"] else "[ ]"
             details_text = f" - {task['details']}" if task["details"] else ""
-            message += f"{status} #{task['id']} **{task['name']}**{details_text}\n"
+            date_text = format_notify_date(task.get("notify_date"))
+            message += f"{status} #{task['id']} **{task['name']}**{details_text}{date_text}\n"
         has_tasks = True
 
     if not has_tasks:
@@ -218,7 +270,7 @@ async def edit(interaction: discord.Interaction):
         await interaction.response.send_message("No tasks found.")
         return
 
-    view = EditTaskView(guild_id, channel_id)
+    view = EditTaskView(guild_id, channel_id, is_reminders_channel(interaction.channel))
     await interaction.response.send_message("Select a task to edit:", view=view)
 
 

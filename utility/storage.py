@@ -15,6 +15,7 @@ REMINDER_HOUR = 9
 REMINDER_MINUTE = 0
 REMINDER_MENTION = os.getenv("DISCORD_USERNAME_ID", "@everyone")
 REMINDER_CHANNELS = ["to-do"]  # List of channel names to send daily reminders to
+REMINDERS_CHANNEL = "reminders"  # Channel for date-based reminders (not daily digest)
 DONE_CHANNEL = "done-tasks"  # Channel to post removed/completed tasks
 
 # In-memory storage for todos (per guild, per channel)
@@ -52,6 +53,16 @@ def save_todos():
     """Save todos to file."""
     with open(TODO_FILE, "w") as f:
         json.dump(todos, f, indent=2)
+
+
+def is_reminders_channel(channel) -> bool:
+    """Return True if the channel is the configured reminders channel."""
+    return channel is not None and channel.name == REMINDERS_CHANNEL
+
+
+def format_notify_date(notify_date: str | None) -> str:
+    """Format a stored ISO date for display, or empty string if unset."""
+    return f" (due {notify_date})" if notify_date else ""
 
 
 # Load existing todos on startup

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import discord
 from discord import ui
 
@@ -46,11 +48,12 @@ class DoneTaskView(ui.View):
 
 
 class EditTaskModal(ui.Modal):
-    def __init__(self, guild_id, channel_id, task_id, task_name, task_details):
+    def __init__(self, guild_id, channel_id, task_id, task_name, task_details, notify_date=None, is_reminders=False):
         super().__init__(title="Edit Task")
         self.guild_id = guild_id
         self.channel_id = channel_id
         self.task_id = task_id
+        self.is_reminders = is_reminders
 
         self.name_input = ui.TextInput(
             label="Task Name",
@@ -67,23 +70,44 @@ class EditTaskModal(ui.Modal):
         self.add_item(self.name_input)
         self.add_item(self.details_input)
 
+        if is_reminders:
+            self.date_input = ui.TextInput(
+                label="Due Date (YYYY-MM-DD)",
+                default=notify_date or "",
+                placeholder="2026-07-15",
+                max_length=10,
+            )
+            self.add_item(self.date_input)
+
     async def on_submit(self, interaction: discord.Interaction):
         channel_tasks = todos.get(self.guild_id, {}).get(self.channel_id, [])
         for task in channel_tasks:
             if task["id"] == self.task_id:
                 task["name"] = self.name_input.value
                 task["details"] = self.details_input.value
+                if self.is_reminders:
+                    date_str = self.date_input.value.strip()
+                    try:
+                        datetime.strptime(date_str, "%Y-%m-%d")
+                    except ValueError:
+                        await interaction.response.send_message(
+                            "Invalid date. Use YYYY-MM-DD format.", ephemeral=True
+                        )
+                        return
+                    task["notify_date"] = date_str
                 save_todos()
+                date_text = f" (due {task['notify_date']})" if task.get("notify_date") else ""
                 await interaction.response.send_message(
-                    f"Task #{self.task_id} updated: **{task['name']}**"
+                    f"Task #{self.task_id} updated: **{task['name']}**{date_text}"
                 )
                 return
 
 
 class EditTaskSelect(ui.Select):
-    def __init__(self, guild_id, channel_id):
+    def __init__(self, guild_id, channel_id, is_reminders=False):
         self.guild_id = guild_id
         self.channel_id = channel_id
+        self.is_reminders = is_reminders
         channel_tasks = todos.get(guild_id, {}).get(channel_id, [])
         options = [
             discord.SelectOption(
@@ -104,16 +128,17 @@ class EditTaskSelect(ui.Select):
         task = channel_tasks[idx]
         modal = EditTaskModal(
             guild_id, channel_id, task["id"],
-            task["name"], task["details"]
+            task["name"], task["details"],
+            task.get("notify_date"), self.is_reminders,
         )
         await interaction.response.send_modal(modal)
         await interaction.message.delete()
 
 
 class EditTaskView(ui.View):
-    def __init__(self, guild_id, channel_id):
+    def __init__(self, guild_id, channel_id, is_reminders=False):
         super().__init__(timeout=60)
-        self.add_item(EditTaskSelect(guild_id, channel_id))
+        self.add_item(EditTaskSelect(guild_id, channel_id, is_reminders))
 
     async def on_timeout(self):
         pass

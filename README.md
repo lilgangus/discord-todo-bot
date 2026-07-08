@@ -1,6 +1,6 @@
-# Discord Todo Bot
+# Discord Todo Bot (not recommended for use :P)
 
-A Discord bot for managing to-do lists with slash commands. Tasks are stored per channel; daily reminders post incomplete tasks to a configured channel and move completed ones to a "done" channel.
+Dum (no intelligence, no vibes) Discord bot for managing to-do lists with slash commands. Tasks are stored per channel; daily reminders post incomplete tasks to a configured channel and move completed ones to a "done" channel. A separate **#reminders** channel supports date-based notifications at midnight.
 Main motiviation: wanted bot to selfhost
 
 ## Commands
@@ -8,6 +8,7 @@ Main motiviation: wanted bot to selfhost
 | Command | Description |
 |--------|-------------|
 | `/add task` | Add a task (use `\|` for details, e.g. `Buy milk \| 2% gallon`) |
+| `/add task notify_date` | In **#reminders**, set a due date (notified at midnight that day) |
 | `/list` | List tasks in this channel |
 | `/listall` | List tasks from all channels |
 | `/done` | Mark a task as completed |
@@ -61,12 +62,15 @@ This builds the image, runs the container, and mounts `.env` and a data director
 - Logs: `docker logs -f discord-todo-bot`
 - Stop: `docker stop discord-todo-bot`
 
-### 4. Discord channels (for reminders)
+### 4. Discord channels
 
-For daily reminders to work, create these text channels (or adjust names in `utility/storage.py`):
+Create these text channels (or adjust names in `utility/storage.py`):
 
-- **to-do** – channels that receive the daily reminder of incomplete tasks.
-- **done-tasks** – channel where completed tasks are posted when the reminder runs (9:00 AM America/Los_Angeles).
+- **to-do** – receives the daily 9:00 AM reminder of incomplete tasks (America/Los_Angeles).
+- **reminders** – date-based reminders; tasks notify at **midnight** on their due date (same timezone).
+- **done-tasks** – completed tasks are posted here when marked done or removed.
+
+No changes are needed in the [Discord Developer Portal](https://discord.com/developers/applications) if the bot is already invited with `bot` and `applications.commands` scopes. Slash commands work in any channel the bot can read. Just create the **#reminders** channel and ensure the bot has permission to send messages there.
 
 ## Requirements
 
